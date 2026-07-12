@@ -1,5 +1,6 @@
 {
   "manifest_version": 3,
+  "key": "40ac9290192da75e98f477427d8d0f04bd799db2664493ae8619bd6b8411078e",
   "name": "TraceShot",
   "version": "0.1.0",
   "description": "Make team screenshots traceable",
@@ -8,11 +9,19 @@
     "tabs",
     "downloads",
     "clipboardWrite",
-    "storage"
+    "storage",
+    "identity"
   ],
   "host_permissions": [
     "<all_urls>"
   ],
+  "oauth2": {
+    "client_id": "245597955683-gf9rtha52o99vrc8p7q1qubs68se3mis.apps.googleusercontent.com",
+    "scopes": [
+      "https://www.googleapis.com/auth/userinfo.profile",
+      "https://www.googleapis.com/auth/userinfo.email"
+    ]
+  },
   "action": {
     "default_popup": "index.html",
     "default_title": "TraceShot"

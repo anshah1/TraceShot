@@ -20,5 +20,5 @@ export default function App() {
 
   if (loading) return <div>Loading</div>
 
-  return session ? <HomePage /> : <LoginPage />
+  return session ? <HomePage session={session} /> : <LoginPage />
 }

@@ -1,51 +1,43 @@
 import type { Session } from './types'
-import { generate7CharId } from './id'
 
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3000'
+let currentSession: Session | null = null
+let authStateCallback: ((session: Session | null) => void) | null = null
 
 export async function loginWithGoogle() {
   try {
-    const token = await chrome.identity.getAuthToken({ interactive: true })
-    if (!token) throw new Error('Failed to get auth token')
+    const clientId = '245597955683-rotktgpi50ss68fumj7pea9h4t0ecvl4.apps.googleusercontent.com'
+    const redirectUrl = 'https://mbokhhoehjbeloagedfljefmlcpcbpio.chromiumapp.org/'
+    const scope = 'https://www.googleapis.com/auth/userinfo.email https://www.googleapis.com/auth/userinfo.profile'
 
-    const userInfo = await chrome.identity.getProfileUserInfo()
-    if (!userInfo.email) throw new Error('Failed to get email')
+    const authUrl = `https://accounts.google.com/o/oauth2/auth?client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUrl)}&response_type=code&scope=${encodeURIComponent(scope)}`
 
-    let user
-    let created = false
-
-    do {
-      const userId = generate7CharId()
-
-      try {
-        const response = await fetch(`${BACKEND_URL}/api/auth/init`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email: userInfo.email, user_id: userId }),
-        })
-
-        if (!response.ok) {
-          const error = await response.json()
-          throw new Error(error.message || 'Failed to create/fetch user')
-        }
-
-        const data = await response.json()
-        user = data.user
-        created = true
-      } catch (error) {
-        if (error instanceof Error && error.message.includes('duplicate')) {
-          continue
-        }
-        throw error
-      }
-    } while (!created)
-
-    await chrome.storage.local.set({
-      auth: {
-        user,
-        access_token: token,
-      },
+    const responseUrl = await chrome.identity.launchWebAuthFlow({
+      url: authUrl,
+      interactive: true,
     })
+
+    if (!responseUrl) throw new Error('Failed to get auth code from Google')
+
+    const url = new URL(responseUrl)
+    const code = url.searchParams.get('code')
+    if (!code) throw new Error('No auth code in response')
+
+    // Send code to backend to exchange for session
+    const response = await fetch(`${BACKEND_URL}/api/auth/exchange`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ code }),
+    })
+
+    if (!response.ok) {
+      const error = await response.json()
+      throw new Error(error.message || 'Failed to exchange code')
+    }
+
+    const data = await response.json()
+    currentSession = data.session
+    if (authStateCallback) authStateCallback(currentSession)
   } catch (error) {
     console.error('Login failed:', error)
     throw error
@@ -53,23 +45,24 @@ export async function loginWithGoogle() {
 }
 
 export async function logout() {
-  await chrome.identity.clearAllCachedAuthTokens()
-  await chrome.storage.local.remove('auth')
-}
+  try {
+    currentSession = null
+    if (authStateCallback) authStateCallback(null)
 
-export async function getSession(): Promise<Session | null> {
-  const storage = await chrome.storage.local.get('auth')
-  return (storage.auth as Session) || null
+    await chrome.identity.clearAllCachedAuthTokens()
+    await fetch(`${BACKEND_URL}/api/auth/session`, {
+      method: 'POST',
+    })
+  } catch (error) {
+    console.error('Logout failed:', error)
+  }
 }
 
 export function onAuthStateChange(callback: (session: Session | null) => void) {
-  getSession().then(callback)
+  authStateCallback = callback
+  callback(currentSession)
 
-  const unsubscribe = chrome.storage.onChanged.addListener((changes) => {
-    if (changes.auth) {
-      callback((changes.auth.newValue as Session) || null)
-    }
-  })
-
-  return unsubscribe
+  return () => {
+    authStateCallback = null
+  }
 }
