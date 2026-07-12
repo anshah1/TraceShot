@@ -10,7 +10,7 @@ if (!supabaseUrl || !supabaseKey) {
 
 export const supabase = createClient(supabaseUrl, supabaseKey)
 
-async function createScreenshot(screenshotKeyIn: string, urlIn: string) {
+export async function createScreenshot(screenshotKeyIn: string, urlIn: string) {
   const { data : preexisting } = await supabase
   .from('screenshots')
   .select('*')
@@ -30,7 +30,7 @@ async function createScreenshot(screenshotKeyIn: string, urlIn: string) {
   return data;
 }
 
-async function getURL(screenshotKeyIn: string) {
+export async function getURL(screenshotKeyIn: string) {
   const { data : entry} = await supabase
   .from('screenshots')
   .select('*')
@@ -41,7 +41,7 @@ async function getURL(screenshotKeyIn: string) {
   return entry.url;
 }
 
-async function getUserId(emailIn: string) {
+export async function getUserId(emailIn: string) {
   const { data : user} = await supabase
   .from('users')
   .select('*')
@@ -51,5 +51,3 @@ async function getUserId(emailIn: string) {
   if (!user) throw new ApiError(404, 'NOT_FOUND', 'No user with the given email exists')
   return user.user_id;
 }
-
-export { createScreenshot, getURL, getUserId }
