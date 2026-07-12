@@ -49,5 +49,7 @@ async function getUserId(emailIn: string) {
   .single();
 
   if (!user) throw new ApiError(404, 'NOT_FOUND', 'No user with the given email exists')
-  return user.email;
+  return user.user_id;
 }
+
+export { createScreenshot, getURL, getUserId }
