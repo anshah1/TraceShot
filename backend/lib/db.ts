@@ -45,13 +45,36 @@ export async function getURL(screenshotKeyIn: string) {
   return entry.url;
 }
 
-export async function getUserId(emailIn: string) {
+export async function containsUserWithId(idIn: string) {
+  const { data : user} = await supabase
+  .from('users')
+  .select('*')
+  .eq('user_id', idIn)
+  .single();
+
+  if (user) return true;
+  return false;
+}
+
+export async function getUserByEmail(emailIn: string) {
   const { data : user} = await supabase
   .from('users')
   .select('*')
   .eq('email', emailIn)
   .single();
 
-  if (!user) throw new ApiError(404, 'NOT_FOUND', 'No user with the given email exists')
-  return user.user_id;
+  return user || null;
+}
+
+export async function createUser(emailIn: string, userIdIn: string) {
+  const { data, error } = await supabase
+  .from('users')
+  .insert({
+    email: emailIn,
+    user_id: userIdIn,
+  })
+  .select();
+
+  if (error) throw new ApiError(500, 'DB_ERROR', error.message)
+  return data[0];
 }

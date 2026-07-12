@@ -1,13 +1,24 @@
+import { useEffect, useState } from 'react'
+import type { Session } from './types'
+import { onAuthStateChange } from './auth'
+import LoginPage from './LoginPage'
+import HomePage from './HomePage'
 import './App.css'
 
-function App() {
-  return (
-    <div>
-      <h1>TraceShot</h1>
-      <p>Screenshot tracking extension</p>
-      <button>Capture</button>
-    </div>
-  )
-}
+export default function App() {
+  const [session, setSession] = useState<Session | null>(null)
+  const [loading, setLoading] = useState(true)
 
-export default App
+  useEffect(() => {
+    const unsubscribe = onAuthStateChange((newSession) => {
+      setSession(newSession)
+      setLoading(false)
+    })
+
+    return () => unsubscribe?.()
+  }, [])
+
+  if (loading) return <div>Loading</div>
+
+  return session ? <HomePage /> : <LoginPage />
+}
