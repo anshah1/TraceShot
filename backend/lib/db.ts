@@ -14,7 +14,8 @@ export async function createScreenshot(screenshotKeyIn: string, urlIn: string) {
   const { data : preexisting } = await supabase
   .from('screenshots')
   .select('*')
-  .eq('screenshot_key', screenshotKeyIn);
+  .eq('screenshot_key', screenshotKeyIn)
+  .single()
 
   if (preexisting) throw new ApiError(409, 'KEY_COLLISION', 'Screenshot key already exists')
 
@@ -26,7 +27,10 @@ export async function createScreenshot(screenshotKeyIn: string, urlIn: string) {
   })
   .select();
 
-  if (error) throw new ApiError(500, 'DB_ERROR', 'Failed to create snapshot')
+  if (error) {
+    console.log('Insert error:', error)  // ← Log this
+    throw new ApiError(500, 'DB_ERROR', error.message)
+  }  
   return data;
 }
 
