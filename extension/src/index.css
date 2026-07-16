@@ -1,5 +1,5 @@
 :root {
-  --text: #6b6375;
+  --text: #4a4855;
   --text-h: #08060d;
   --bg: #fff;
   --border: #e5e4e7;
@@ -32,7 +32,7 @@
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --text: #9ca3af;
+    --text: #d1d5db;
     --text-h: #f3f4f6;
     --bg: #16171d;
     --border: #2e303a;
@@ -50,20 +50,26 @@
   }
 }
 
-#root {
-  width: 1126px;
-  max-width: 100%;
-  margin: 0 auto;
-  text-align: center;
-  border-inline: 1px solid var(--border);
-  min-height: 100svh;
-  display: flex;
-  flex-direction: column;
+*,
+*::before,
+*::after {
   box-sizing: border-box;
 }
 
+/* Chrome sizes the popup to the rendered content and caps it at 800x600; the
+   manifest cannot set popup size. Width is fixed here and height is left to the
+   content, so the popup is exactly as tall as the layout needs. Keep the total
+   under 600px or Chrome clamps and scrolls. */
+html,
 body {
+  width: 640px;
   margin: 0;
+}
+
+#root {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
 }
 
 h1,
@@ -74,13 +80,9 @@ h2 {
 }
 
 h1 {
-  font-size: 56px;
-  letter-spacing: -1.68px;
-  margin: 32px 0;
-  @media (max-width: 1024px) {
-    font-size: 36px;
-    margin: 20px 0;
-  }
+  font-size: 32px;
+  letter-spacing: -0.5px;
+  margin: 0;
 }
 h2 {
   font-size: 24px;
