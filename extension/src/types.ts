@@ -8,3 +8,9 @@ export interface Session {
   access_token: string
   expires_at: number
 }
+
+export interface Tab {
+  url: string
+  title: string
+  origin: string
+}

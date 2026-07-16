@@ -10,8 +10,8 @@ export async function POST(request: Request) { //submitting a screenshot
     console.log('[POST /api/screenshots] Request received')
 
     try {
-        const { screenshotId, url } = await request.json()
-        console.log('[POST] Extracted params:', { screenshotId, url })
+        const { screenshotId, url, title, origin } = await request.json()
+        console.log('[POST] Extracted params:', { screenshotId, url, title, origin })
 
         if (!screenshotId) {
             throw new ApiError(400, 'INCOMPLETE_PARAMETERS', 'Screenshot ID does not exist')
@@ -19,10 +19,16 @@ export async function POST(request: Request) { //submitting a screenshot
         if (!url) {
             throw new ApiError(400, 'INCOMPLETE_PARAMETERS', 'URL does not exist')
         }
+        if (!title) {
+            throw new ApiError(400, 'INCOMPLETE_PARAMETERS', 'Title does not exist')
+        }
+        if (!origin) {
+            throw new ApiError(400, 'INCOMPLETE_PARAMETERS', 'Origin does not exist')
+        }
         if (!isValidScreenshotKey(screenshotId)) throw new ApiError(400, 'INVALID_PARAMETERS', 'Screenshot ID does not follow intended format')
 
         console.log('[POST] Creating screenshot:', screenshotId)
-        const result = await createScreenshot(screenshotId, url)
+        const result = await createScreenshot(screenshotId, url, title, origin)
 
         const duration = Date.now() - startTime
         console.log('[POST] Success in', duration, 'ms')

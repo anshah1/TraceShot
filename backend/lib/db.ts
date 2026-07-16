@@ -10,7 +10,7 @@ if (!supabaseUrl || !supabaseKey) {
 
 export const supabase = createClient(supabaseUrl, supabaseKey)
 
-export async function createScreenshot(screenshotKeyIn: string, urlIn: string) {
+export async function createScreenshot(screenshotKeyIn: string, urlIn: string, titleIn: string, originIn: string) {
   const { data : preexisting } = await supabase
   .from('screenshots')
   .select('*')
@@ -23,14 +23,16 @@ export async function createScreenshot(screenshotKeyIn: string, urlIn: string) {
   .from('screenshots')
   .insert({
     screenshot_key: screenshotKeyIn,
-    url: urlIn
+    url: urlIn,
+    title: titleIn,
+    origin: originIn
   })
   .select();
 
   if (error) {
     console.log('Insert error:', error)  // ← Log this
     throw new ApiError(500, 'DB_ERROR', error.message)
-  }  
+  }
   return data;
 }
 
