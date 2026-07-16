@@ -1,8 +1,22 @@
 import type { Session } from './types'
 
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3000'
-let currentSession: Session | null = null
+const STORAGE_KEY = 'session'
+
 let authStateCallback: ((session: Session | null) => void) | null = null
+
+async function getSession(): Promise<Session | null> {
+  const result = await chrome.storage.local.get(STORAGE_KEY)
+  return (result[STORAGE_KEY] as Session | undefined) || null
+}
+
+async function setSession(session: Session | null): Promise<void> {
+  if (session === null) {
+    await chrome.storage.local.remove(STORAGE_KEY)
+  } else {
+    await chrome.storage.local.set({ [STORAGE_KEY]: session })
+  }
+}
 
 export async function loginWithGoogle() {
   try {
@@ -36,8 +50,8 @@ export async function loginWithGoogle() {
     }
 
     const data = await response.json()
-    currentSession = data.session
-    if (authStateCallback) authStateCallback(currentSession)
+    await setSession(data.session)
+    if (authStateCallback) authStateCallback(data.session)
   } catch (error) {
     console.error('Login failed:', error)
     throw error
@@ -46,7 +60,7 @@ export async function loginWithGoogle() {
 
 export async function logout() {
   try {
-    currentSession = null
+    await setSession(null)
     if (authStateCallback) authStateCallback(null)
 
     await chrome.identity.clearAllCachedAuthTokens()
@@ -60,9 +74,21 @@ export async function logout() {
 
 export function onAuthStateChange(callback: (session: Session | null) => void) {
   authStateCallback = callback
-  callback(currentSession)
+
+  getSession().then((session) => {
+    callback(session)
+  })
+
+  const handleStorageChange = (changes: Record<string, chrome.storage.StorageChange>) => {
+    if (STORAGE_KEY in changes) {
+      callback((changes[STORAGE_KEY].newValue as Session | undefined) || null)
+    }
+  }
+
+  chrome.storage.onChanged.addListener(handleStorageChange)
 
   return () => {
     authStateCallback = null
+    chrome.storage.onChanged.removeListener(handleStorageChange)
   }
 }
