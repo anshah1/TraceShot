@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { loginWithGoogle } from './auth'
+import HelpModal from './HelpModal'
 import './LoginPage.css'
 
 export default function LoginPage() {
@@ -24,6 +25,8 @@ export default function LoginPage() {
 
   return (
     <main className="login-container">
+      <HelpModal />
+
       <div className="login-content">
         <header className="login-intro">
           <h1 className="login-wordmark">TraceShot</h1>

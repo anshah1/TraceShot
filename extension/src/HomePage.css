@@ -1,0 +1,269 @@
+.home {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 16px;
+  background: var(--bg);
+  color: var(--text);
+}
+
+.home-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  /* Reserve the top-right corner for the shared HelpModal "?" trigger. */
+  padding-right: 34px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--border);
+}
+
+.home-wordmark {
+  font-size: 18px;
+  font-weight: 600;
+  letter-spacing: -0.3px;
+  color: var(--accent);
+}
+
+.home-account {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.home-email {
+  max-width: 180px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+.btn-primary,
+.btn-secondary,
+.btn-ghost {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  font-family: inherit;
+  font-weight: 500;
+  cursor: pointer;
+  border-radius: 6px;
+  transition:
+    background 0.15s ease-out,
+    border-color 0.15s ease-out,
+    box-shadow 0.15s ease-out,
+    transform 0.15s ease-out;
+
+  &:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+  }
+
+  &:active:not(:disabled) {
+    transform: scale(0.98);
+  }
+}
+
+.btn-primary {
+  height: 44px;
+  padding: 0 16px;
+  border: none;
+  font-size: 16px;
+  font-weight: 600;
+  background: var(--accent-solid);
+  color: var(--on-accent);
+
+  &:hover:not(:disabled) {
+    background: var(--accent-solid-hover);
+    box-shadow: 0 4px 12px rgba(147, 51, 234, 0.28);
+  }
+}
+
+.btn-secondary {
+  height: 42px;
+  padding: 0 14px;
+  font-size: 14px;
+  border: 1px solid var(--accent-border);
+  background: var(--accent-bg);
+  color: var(--accent);
+
+  &:hover:not(:disabled) {
+    background: var(--accent-bg);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+  }
+}
+
+.btn-ghost {
+  height: 28px;
+  padding: 0 8px;
+  font-size: 13px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--text-muted);
+
+  &:hover:not(:disabled) {
+    color: var(--text-h);
+    background: var(--code-bg);
+  }
+}
+
+.home-capture {
+  height: auto;
+  padding: 15px 16px;
+  gap: 12px;
+  justify-content: flex-start;
+}
+
+.home-capture-label {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  line-height: 1.2;
+}
+
+.home-capture-sub {
+  margin-top: 3px;
+  font-size: 13px;
+  font-weight: 400;
+  opacity: 0.85;
+}
+
+.home-section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.home-section-title {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text-h);
+  letter-spacing: -0.1px;
+}
+
+.dropzone {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 22px 16px;
+  border: 1.5px dashed var(--border);
+  border-radius: 8px;
+  background: var(--code-bg);
+  text-align: center;
+  cursor: pointer;
+  transition:
+    border-color 0.15s ease-out,
+    background 0.15s ease-out;
+
+  &:hover,
+  &:focus-within {
+    border-color: var(--accent-border);
+  }
+}
+
+.dropzone.is-dragging {
+  border-color: var(--accent);
+  border-style: solid;
+  background: var(--accent-bg);
+}
+
+/* Visually hidden but focusable, so the zone is keyboard-reachable. */
+.dropzone-input {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.dropzone-icon {
+  width: 24px;
+  height: 24px;
+  color: var(--accent);
+}
+
+.dropzone-text {
+  font-size: 14px;
+  color: var(--text);
+
+  strong {
+    color: var(--text-h);
+    font-weight: 600;
+  }
+}
+
+.dropzone-hint {
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+.link-result {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.link-url {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.link-copy {
+  flex-shrink: 0;
+}
+
+.location-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px 8px 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg);
+}
+
+.location-icon {
+  flex-shrink: 0;
+  width: 18px;
+  height: 18px;
+  color: var(--text-muted);
+}
+
+.location-path {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 13px;
+  color: var(--text-h);
+}
+
+.location-change {
+  flex-shrink: 0;
+}
+
+.icon {
+  width: 20px;
+  height: 20px;
+  flex-shrink: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .btn-primary,
+  .btn-secondary,
+  .btn-ghost,
+  .dropzone {
+    transition: none;
+  }
+}

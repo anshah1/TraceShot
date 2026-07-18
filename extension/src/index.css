@@ -7,6 +7,11 @@
   --accent: #aa3bff;
   --accent-bg: rgba(170, 59, 255, 0.1);
   --accent-border: rgba(170, 59, 255, 0.5);
+  /* Darker solid accent so white text on the primary CTA clears WCAG AA. */
+  --accent-solid: #9333ea;
+  --accent-solid-hover: #7e22ce;
+  --on-accent: #fff;
+  --text-muted: #6c6a76;
   --social-bg: rgba(244, 243, 236, 0.5);
   --shadow:
     rgba(0, 0, 0, 0.1) 0 10px 15px -3px, rgba(0, 0, 0, 0.05) 0 4px 6px -2px;
@@ -40,6 +45,10 @@
     --accent: #c084fc;
     --accent-bg: rgba(192, 132, 252, 0.15);
     --accent-border: rgba(192, 132, 252, 0.5);
+    --accent-solid: #9333ea;
+    --accent-solid-hover: #a855f7;
+    --on-accent: #fff;
+    --text-muted: #9a98a6;
     --social-bg: rgba(47, 48, 58, 0.5);
     --shadow:
       rgba(0, 0, 0, 0.4) 0 10px 15px -3px, rgba(0, 0, 0, 0.25) 0 4px 6px -2px;
@@ -56,10 +65,7 @@
   box-sizing: border-box;
 }
 
-/* Chrome sizes the popup to the rendered content and caps it at 800x600; the
-   manifest cannot set popup size. Width is fixed here and height is left to the
-   content, so the popup is exactly as tall as the layout needs. Keep the total
-   under 600px or Chrome clamps and scrolls. */
+/* Width is fixed; height follows content. Keep total under 600px or Chrome scrolls. */
 html,
 body {
   width: 640px;
