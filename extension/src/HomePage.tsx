@@ -1,14 +1,19 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { logout } from './auth'
 import type { Session } from './types'
 import HelpModal from './HelpModal'
+import { DEFAULT_SAVE_LOCATION, formatSaveLocation, getSaveLocationName, pickSaveLocation } from './screenshotLocation'
 import './HomePage.css'
 
 export default function HomePage({ session }: { session: Session }) {
   const [isDragging, setIsDragging] = useState(false)
   const [retrievedLink, setRetrievedLink] = useState<string | null>(null)
   const [copied, setCopied] = useState(false)
-  const [saveLocation] = useState('Downloads / TraceShot')
+  const [saveLocation, setSaveLocation] = useState(DEFAULT_SAVE_LOCATION)
+
+  useEffect(() => {
+    getSaveLocationName().then(setSaveLocation)
+  }, [])
 
   const handleLogout = async () => {
     await logout()
@@ -19,7 +24,7 @@ export default function HomePage({ session }: { session: Session }) {
     return null
   }
 
-  // TODO: capture region, then save + copy the screenshot
+  // TODO: capture region, then save (via getSaveDirectoryHandle(), or default download when null) + copy
   const handleScreenshot = () => {}
 
   const handleFileSelect = async (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -43,8 +48,10 @@ export default function HomePage({ session }: { session: Session }) {
     setTimeout(() => setCopied(false), 1500)
   }
 
-  // TODO: open the directory picker for the default save location
-  const handleChangeLocation = () => {}
+  const handleChangeLocation = async () => {
+    const name = await pickSaveLocation()
+    if (name) setSaveLocation(name)
+  }
 
   return (
     <main className="home">
@@ -131,7 +138,7 @@ export default function HomePage({ session }: { session: Session }) {
 
       <section className="home-section" aria-labelledby="location-heading">
         <h2 id="location-heading" className="home-section-title">
-          Default save location
+          Save location
         </h2>
         <div className="location-row">
           <svg className="icon location-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true">
@@ -143,7 +150,7 @@ export default function HomePage({ session }: { session: Session }) {
             />
           </svg>
           <span className="location-path" title={saveLocation}>
-            {saveLocation}
+            {formatSaveLocation(saveLocation)}
           </span>
           <button className="btn-secondary location-change" onClick={handleChangeLocation}>
             Change
