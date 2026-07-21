@@ -26,10 +26,7 @@ export default function HomePage({ session }: { session: Session }) {
     return null
   }
 
-  // Hand off to the background worker (only it can capture) and close: a popup can't draw
-  // the selection overlay on the page and dies on focus loss anyway. See background.ts.
-  // Await the message so a cold-started (idle-terminated) worker fully receives it before
-  // the popup closes — closing mid-handshake drops the message and the button "does nothing".
+  // Hand off to the worker (only it can capture) and await it, so a cold-started worker gets the message before the popup closes.
   const handleScreenshot = async () => {
     try {
       await chrome.runtime.sendMessage({ type: 'START_CAPTURE' })

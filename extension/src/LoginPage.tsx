@@ -13,8 +13,7 @@ export default function LoginPage() {
     try {
       await loginWithGoogle()
     } catch (error) {
-      // The popup is height-capped by Chrome, so the message has to stay on one
-      // line. auth.ts already logs the full error to the console.
+      // Keep the message one line (popup is height-capped); auth.ts logs the full error.
       const message = error instanceof Error ? error.message : ''
       setError(
         message && message.length <= 80 ? message : 'Failed to sign in. Please try again.'

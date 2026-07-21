@@ -1,14 +1,10 @@
-// Where screenshots save: a subfolder under the system Downloads folder, stored as a plain
-// string in chrome.storage.local. We stay inside Downloads on purpose -- chrome.downloads is
-// the only save API that works silently from the service worker, and it can only write within
-// the Downloads tree. See background.ts saveImage().
+// Save subfolder under Downloads, stored in chrome.storage.local; we stay in Downloads since chrome.downloads only writes there. See background.ts saveImage().
 
 export const DEFAULT_SUBFOLDER = 'TraceShot'
 
 const SUBFOLDER_KEY = 'saveSubfolder'
 
-// Undefined means never configured -> default to TraceShot. An empty string is a deliberate
-// choice to save straight to Downloads with no subfolder, so it's preserved as-is.
+// Undefined = never configured -> default TraceShot; empty string = a deliberate "no subfolder", preserved as-is.
 export async function getSaveSubfolder(): Promise<string> {
   const result = await chrome.storage.local.get(SUBFOLDER_KEY)
   const stored = result[SUBFOLDER_KEY] as string | undefined
@@ -27,9 +23,7 @@ export function formatSaveLocation(subfolder: string): string {
   return subfolder ? `Downloads/${subfolder}` : 'Downloads'
 }
 
-// Keep it a safe relative path inside Downloads: drop characters chrome.downloads rejects
-// (spaces and hyphens are fine), strip any ".." segment so it can't escape Downloads, and
-// tidy the slashes.
+// Keep it a safe relative path inside Downloads: drop rejected chars, strip ".." so it can't escape, tidy slashes.
 function sanitizeSubfolder(name: string): string {
   const clean = name
     .trim()

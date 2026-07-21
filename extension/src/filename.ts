@@ -1,11 +1,8 @@
-// Builds self-describing screenshot filenames: TraceShot_{YYYYMMDD-HHMMSS}_{title}.png.
-// Page titles are hostile input (path separators, chars illegal on macOS/Windows, emoji,
-// newlines), so the title is always sanitized before it reaches chrome.downloads.
+// Builds filenames TraceShot_{YYYYMMDD-HHMMSS}_{title}.png; titles are hostile input, so always sanitized.
 
 const MAX_TITLE_LEN = 40
 
-// Sanitize a page title into a safe filename segment. Returns '' if nothing usable remains,
-// so callers can drop the title segment entirely rather than emit a stray separator.
+// Sanitize a page title into a safe filename segment; returns '' when nothing usable remains.
 function sanitizeTitle(title: string): string {
   return title
     .normalize('NFKD') // split accents (é -> e + mark) so the base letter survives ASCII filtering
@@ -27,8 +24,7 @@ function timestamp(date = new Date()): string {
   )
 }
 
-// Timestamp-first so a folder listing sorts chronologically. Blank/unusable titles collapse
-// to TraceShot_{timestamp}.png; second precision + downloads' uniquify handle collisions.
+// Timestamp-first so folders sort chronologically; blank/unusable titles collapse to TraceShot_{timestamp}.png.
 export function buildScreenshotFilename(title: string | undefined): string {
   const stamp = timestamp()
   const safe = sanitizeTitle(title ?? '')

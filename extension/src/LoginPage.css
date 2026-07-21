@@ -38,9 +38,7 @@
   text-wrap: balance;
 }
 
-/* Width-driven so the demo sits flush with the button edges and holds an exact
-   16:10 frame for the capture recording. Its height follows from the ratio, so
-   the popup height below is derived from it rather than guessed. */
+/* Width-driven, flush with the button edges, holding an exact 16:10 frame; popup height derives from it. */
 .demo-section {
   display: flex;
   align-items: center;

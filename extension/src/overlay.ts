@@ -1,9 +1,4 @@
-// TraceShot region-selection overlay. Injected into the active tab on demand by the
-// background worker. Two phases live here:
-//   1. Select — Mac-style dimmed backdrop + click-drag selection box.
-//   2. Preview — after capture, show the cropped image with Confirm / Retake.
-// It removes its dim before signaling capture so the overlay never shows up in the shot,
-// and hands the region to the background (the only context that can capture the screen).
+// Region-selection overlay injected into the active tab: Select (dimmed drag box) then Preview (Confirm/Retake); dim is removed before capture so it never shows in the shot.
 
 interface OverlayWindow extends Window {
   __traceshotOverlayActive?: boolean
@@ -18,8 +13,7 @@ interface OverlayWindow extends Window {
   const MIN_SIZE = 5
   const CANCEL_TOAST_MS = 1200
 
-  // TraceShot's dark theme, hardcoded: this lives on arbitrary pages, so it can't read the
-  // extension's CSS variables. Values mirror index.css (dark palette).
+  // Dark theme hardcoded (mirrors index.css): on arbitrary pages we can't read the extension's CSS variables.
   const BRAND = {
     surface: '#16171d',
     border: '#2e303a',
@@ -139,8 +133,7 @@ interface OverlayWindow extends Window {
     updateRect(e.clientX, e.clientY)
   }
 
-  // relatedTarget === null means the pointer left the window entirely (not just crossed
-  // onto a child element), which is the only "outside the tab" we can detect mid-drag.
+  // relatedTarget === null means the pointer left the window entirely — the only "outside the tab" we can detect mid-drag.
   function onMouseOut(e: MouseEvent) {
     if (e.relatedTarget !== null) return
     const where = e.clientY <= 0 ? 'browser toolbar' : 'area outside this tab'
