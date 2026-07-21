@@ -21,10 +21,13 @@ export default defineConfig({
       input: {
         main: './index.html',
         background: './src/background.ts',
+        overlay: './src/overlay.ts',
       },
       output: {
         entryFileNames: (chunkInfo) => {
-          return chunkInfo.name === 'background' ? 'background.js' : 'assets/[name]-[hash].js';
+          if (chunkInfo.name === 'background') return 'background.js';
+          if (chunkInfo.name === 'overlay') return 'overlay.js';
+          return 'assets/[name]-[hash].js';
         },
       },
     },

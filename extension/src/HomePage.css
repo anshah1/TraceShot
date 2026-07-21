@@ -253,6 +253,29 @@
   flex-shrink: 0;
 }
 
+.location-prefix {
+  flex-shrink: 0;
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+.location-input {
+  flex: 1;
+  min-width: 0;
+  padding: 4px 8px;
+  border: 1px solid var(--accent-border);
+  border-radius: 6px;
+  background: var(--bg);
+  color: var(--text-h);
+  font-size: 13px;
+  font-family: inherit;
+}
+
+.location-input:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
 .icon {
   width: 20px;
   height: 20px;

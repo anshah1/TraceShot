@@ -2,17 +2,19 @@ import { useEffect, useState } from 'react'
 import { logout } from './auth'
 import type { Session } from './types'
 import HelpModal from './HelpModal'
-import { DEFAULT_SAVE_LOCATION, formatSaveLocation, getSaveLocationName, pickSaveLocation } from './screenshotLocation'
+import { DEFAULT_SUBFOLDER, formatSaveLocation, getSaveSubfolder, setSaveSubfolder } from './screenshotLocation'
 import './HomePage.css'
 
 export default function HomePage({ session }: { session: Session }) {
   const [isDragging, setIsDragging] = useState(false)
   const [retrievedLink, setRetrievedLink] = useState<string | null>(null)
   const [copied, setCopied] = useState(false)
-  const [saveLocation, setSaveLocation] = useState(DEFAULT_SAVE_LOCATION)
+  const [saveLocation, setSaveLocation] = useState(DEFAULT_SUBFOLDER)
+  const [editingLocation, setEditingLocation] = useState(false)
+  const [locationDraft, setLocationDraft] = useState(DEFAULT_SUBFOLDER)
 
   useEffect(() => {
-    getSaveLocationName().then(setSaveLocation)
+    getSaveSubfolder().then(setSaveLocation)
   }, [])
 
   const handleLogout = async () => {
@@ -24,8 +26,18 @@ export default function HomePage({ session }: { session: Session }) {
     return null
   }
 
-  // TODO: capture region, then save (via getSaveDirectoryHandle(), or default download when null) + copy
-  const handleScreenshot = () => {}
+  // Hand off to the background worker (only it can capture) and close: a popup can't draw
+  // the selection overlay on the page and dies on focus loss anyway. See background.ts.
+  // Await the message so a cold-started (idle-terminated) worker fully receives it before
+  // the popup closes — closing mid-handshake drops the message and the button "does nothing".
+  const handleScreenshot = async () => {
+    try {
+      await chrome.runtime.sendMessage({ type: 'START_CAPTURE' })
+    } catch (error) {
+      console.error('Failed to start capture:', error)
+    }
+    window.close()
+  }
 
   const handleFileSelect = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0]
@@ -48,9 +60,15 @@ export default function HomePage({ session }: { session: Session }) {
     setTimeout(() => setCopied(false), 1500)
   }
 
-  const handleChangeLocation = async () => {
-    const name = await pickSaveLocation()
-    if (name) setSaveLocation(name)
+  const handleStartEditLocation = () => {
+    setLocationDraft(saveLocation)
+    setEditingLocation(true)
+  }
+
+  const handleSaveLocation = async () => {
+    const clean = await setSaveSubfolder(locationDraft)
+    setSaveLocation(clean)
+    setEditingLocation(false)
   }
 
   return (
@@ -149,12 +167,35 @@ export default function HomePage({ session }: { session: Session }) {
               strokeLinejoin="round"
             />
           </svg>
-          <span className="location-path" title={saveLocation}>
-            {formatSaveLocation(saveLocation)}
-          </span>
-          <button className="btn-secondary location-change" onClick={handleChangeLocation}>
-            Change
-          </button>
+          {editingLocation ? (
+            <>
+              <span className="location-prefix">Downloads/</span>
+              <input
+                className="location-input"
+                type="text"
+                value={locationDraft}
+                autoFocus
+                placeholder="blank = Downloads root"
+                onChange={(e) => setLocationDraft(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') handleSaveLocation()
+                  if (e.key === 'Escape') setEditingLocation(false)
+                }}
+              />
+              <button className="btn-secondary location-change" onClick={handleSaveLocation}>
+                Save
+              </button>
+            </>
+          ) : (
+            <>
+              <span className="location-path" title={formatSaveLocation(saveLocation)}>
+                {formatSaveLocation(saveLocation)}
+              </span>
+              <button className="btn-secondary location-change" onClick={handleStartEditLocation}>
+                Change
+              </button>
+            </>
+          )}
         </div>
       </section>
     </main>
