@@ -5,6 +5,24 @@ import { createScreenshot } from '@/lib/db'
 import { getURL } from '@/lib/db'
 import { isValidScreenshotKey } from '@/lib/types';
 
+const EXTENSION_ORIGIN = process.env.NEXT_PUBLIC_EXTENSION_URL || '*'
+
+const CORS_HEADERS = {
+    'Access-Control-Allow-Origin': EXTENSION_ORIGIN,
+    'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+    'Access-Control-Allow-Headers': 'Content-Type',
+}
+
+// The extension calls this route from a chrome-extension:// origin, so every response (and the POST preflight) needs CORS headers.
+function withCors(response: Response): Response {
+    for (const [key, value] of Object.entries(CORS_HEADERS)) response.headers.set(key, value)
+    return response
+}
+
+export async function OPTIONS() {
+    return new Response(null, { status: 204, headers: CORS_HEADERS })
+}
+
 export async function POST(request: Request) { //submitting a screenshot
     const startTime = Date.now()
     console.log('[POST /api/screenshots] Request received')
@@ -32,12 +50,12 @@ export async function POST(request: Request) { //submitting a screenshot
 
         const duration = Date.now() - startTime
         console.log('[POST] Success in', duration, 'ms')
-        return Response.json(result, { status: 201 })
+        return withCors(Response.json(result, { status: 201 }))
     }
     catch (error) {
         const duration = Date.now() - startTime
         console.log('[POST] Error after', duration, 'ms:', error instanceof Error ? error.message : error)
-        return mapErrorToResponse(error)
+        return withCors(mapErrorToResponse(error))
     }
 }
 
@@ -60,11 +78,11 @@ export async function GET(request: Request) {
 
         const duration = Date.now() - startTime
         console.log('[GET] Success in', duration, 'ms')
-        return Response.json(result, { status: 200})
+        return withCors(Response.json(result, { status: 200}))
     }
     catch (error) {
         const duration = Date.now() - startTime
         console.log('[GET] Error after', duration, 'ms:', error instanceof Error ? error.message : error)
-        return mapErrorToResponse(error)
+        return withCors(mapErrorToResponse(error))
     }
 }

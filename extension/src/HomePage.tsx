@@ -3,11 +3,18 @@ import { logout } from './auth'
 import type { Session } from './types'
 import HelpModal from './HelpModal'
 import { DEFAULT_SUBFOLDER, formatSaveLocation, getSaveSubfolder, setSaveSubfolder } from './screenshotLocation'
+import { readFrameId } from './watermark'
 import './HomePage.css'
+
+const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3000'
+const RESOLVE_TIMEOUT_MS = 8000
+
+type ResolveStatus = 'idle' | 'resolving' | 'resolved' | 'not-found'
 
 export default function HomePage({ session }: { session: Session }) {
   const [isDragging, setIsDragging] = useState(false)
   const [retrievedLink, setRetrievedLink] = useState<string | null>(null)
+  const [resolveStatus, setResolveStatus] = useState<ResolveStatus>('idle')
   const [copied, setCopied] = useState(false)
   const [saveLocation, setSaveLocation] = useState(DEFAULT_SUBFOLDER)
   const [editingLocation, setEditingLocation] = useState(false)
@@ -21,9 +28,40 @@ export default function HomePage({ session }: { session: Session }) {
     await logout()
   }
 
-  // TODO: decode watermark + resolve via backend; returns null until wired
-  const resolveLink = async (_file: File): Promise<string | null> => {
-    return null
+  // Decode the watermark id from the dropped image (canvas → pixels → readFrameId), then resolve it to its source URL via the backend.
+  const resolveLink = async (file: File): Promise<string | null> => {
+    const controller = new AbortController()
+    const timeout = setTimeout(() => controller.abort(), RESOLVE_TIMEOUT_MS)
+    try {
+      const bitmap = await createImageBitmap(file)
+      const canvas = document.createElement('canvas')
+      canvas.width = bitmap.width
+      canvas.height = bitmap.height
+      const ctx = canvas.getContext('2d')
+      if (!ctx) return null
+      ctx.drawImage(bitmap, 0, 0)
+      const { data, width, height } = ctx.getImageData(0, 0, canvas.width, canvas.height)
+      const id = readFrameId(data, width, height)
+      if (!id) return null
+
+      const res = await fetch(`${BACKEND_URL}/api/screenshots?screenshotId=${id}`, { signal: controller.signal })
+      if (!res.ok) return null
+      return await res.json()
+    } catch (error) {
+      console.error('Failed to resolve link:', error)
+      return null
+    } finally {
+      clearTimeout(timeout)
+    }
+  }
+
+  // Drive the shared resolve → UI-status transition for both drop and file-picker inputs.
+  const resolveFile = async (file: File) => {
+    setResolveStatus('resolving')
+    setRetrievedLink(null)
+    const link = await resolveLink(file)
+    setRetrievedLink(link)
+    setResolveStatus(link ? 'resolved' : 'not-found')
   }
 
   // Hand off to the worker (only it can capture) and await it, so a cold-started worker gets the message before the popup closes.
@@ -39,7 +77,7 @@ export default function HomePage({ session }: { session: Session }) {
   const handleFileSelect = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0]
     if (!file) return
-    setRetrievedLink(await resolveLink(file))
+    await resolveFile(file)
   }
 
   const handleDrop = async (event: React.DragEvent) => {
@@ -47,7 +85,7 @@ export default function HomePage({ session }: { session: Session }) {
     setIsDragging(false)
     const file = event.dataTransfer.files?.[0]
     if (!file) return
-    setRetrievedLink(await resolveLink(file))
+    await resolveFile(file)
   }
 
   const handleCopyLink = async () => {
@@ -141,7 +179,13 @@ export default function HomePage({ session }: { session: Session }) {
           <p className="dropzone-hint">Traced screenshots resolve to their source URL</p>
         </label>
 
-        {retrievedLink && (
+        {resolveStatus === 'resolving' && <p className="link-status">Decoding screenshot…</p>}
+
+        {resolveStatus === 'not-found' && (
+          <p className="link-status link-status-error">Not recognized — no TraceShot watermark found in this image.</p>
+        )}
+
+        {resolveStatus === 'resolved' && retrievedLink && (
           <div className="link-result">
             <code className="link-url">{retrievedLink}</code>
             <button className="btn-secondary link-copy" onClick={handleCopyLink}>

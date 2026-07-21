@@ -4,6 +4,10 @@ import { buildScreenshotFilename } from './filename'
 import { generateScreenshotId } from './id'
 import { BORDER_H, STRIP_PIXELS, paintWatermarkFrame } from './watermark'
 
+const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3000'
+const WATERMARK_ID = /^[a-p]{14}$/
+const REGISTER_TIMEOUT_MS = 8000
+
 chrome.runtime.onInstalled.addListener(() => {
   console.log('TraceShot extension installed');
 });
@@ -28,11 +32,33 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     captureRegion(message.rect, message.dpr, sender).then(sendResponse)
     return true // keep the channel open for the async response
   } else if (message?.type === 'CONFIRM_SAVE') {
-    // CONFIRM_SAVE comes from the content script, so sender.tab carries the page title.
-    // message.id is the watermark key embedded in the image; a later issue POSTs it to /api/screenshots here.
+    // CONFIRM_SAVE comes from the content script, so sender.tab carries the page title/url.
     saveImage(message.imageUrl, sender.tab?.title)
+    registerSnapshot(message.id, sender.tab)
   }
 })
+
+// Register the watermark key + page metadata so a dropped shot can later resolve to its source URL.
+// Skipped silently when the region was too small to watermark (id null); never blocks the save.
+async function registerSnapshot(id: string | null, tab?: chrome.tabs.Tab) {
+  if (!id || !WATERMARK_ID.test(id) || !tab?.url || !tab?.title) return
+  const controller = new AbortController()
+  const timeout = setTimeout(() => controller.abort(), REGISTER_TIMEOUT_MS)
+  try {
+    const origin = new URL(tab.url).origin
+    const res = await fetch(`${BACKEND_URL}/api/screenshots`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ screenshotId: id, url: tab.url, title: tab.title, origin }),
+      signal: controller.signal,
+    })
+    if (!res.ok) console.error('[TraceShot] snapshot register failed:', res.status)
+  } catch (error) {
+    console.error('[TraceShot] snapshot register failed:', error)
+  } finally {
+    clearTimeout(timeout)
+  }
+}
 
 // Inject the region-selection overlay into the active tab.
 async function startCapture() {

@@ -12,6 +12,7 @@
   --accent-solid-hover: #7e22ce;
   --on-accent: #fff;
   --text-muted: #6c6a76;
+  --danger: #c0341d;
   --social-bg: rgba(244, 243, 236, 0.5);
   --shadow:
     rgba(0, 0, 0, 0.1) 0 10px 15px -3px, rgba(0, 0, 0, 0.05) 0 4px 6px -2px;
@@ -49,6 +50,7 @@
     --accent-solid-hover: #a855f7;
     --on-accent: #fff;
     --text-muted: #9a98a6;
+    --danger: #f87171;
     --social-bg: rgba(47, 48, 58, 0.5);
     --shadow:
       rgba(0, 0, 0, 0.4) 0 10px 15px -3px, rgba(0, 0, 0, 0.25) 0 4px 6px -2px;

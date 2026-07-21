@@ -204,6 +204,15 @@
   color: var(--text-muted);
 }
 
+.link-status {
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+.link-status-error {
+  color: var(--danger);
+}
+
 .link-result {
   display: flex;
   align-items: center;
