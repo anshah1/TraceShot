@@ -5,7 +5,7 @@ const STORAGE_KEY = 'session'
 
 let authStateCallback: ((session: Session | null) => void) | null = null
 
-async function getSession(): Promise<Session | null> {
+export async function getSession(): Promise<Session | null> {
   const result = await chrome.storage.local.get(STORAGE_KEY)
   return (result[STORAGE_KEY] as Session | undefined) || null
 }

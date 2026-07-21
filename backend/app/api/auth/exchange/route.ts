@@ -67,6 +67,7 @@ export async function POST(request: NextRequest) {
           user: {
             id: dbUser.id,
             email: dbUser.email,
+            userId: dbUser.user_id, // 7-char [a-p] id the extension prepends to form the watermark key
           },
           access_token,
         },

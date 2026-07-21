@@ -1,6 +1,8 @@
-import { registerLoginHandler } from './auth'
+import { registerLoginHandler, getSession } from './auth'
 import { getSaveSubfolder } from './screenshotLocation'
 import { buildScreenshotFilename } from './filename'
+import { generateScreenshotId } from './id'
+import { BORDER_H, STRIP_PIXELS, paintWatermarkFrame } from './watermark'
 
 chrome.runtime.onInstalled.addListener(() => {
   console.log('TraceShot extension installed');
@@ -27,6 +29,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     return true // keep the channel open for the async response
   } else if (message?.type === 'CONFIRM_SAVE') {
     // CONFIRM_SAVE comes from the content script, so sender.tab carries the page title.
+    // message.id is the watermark key embedded in the image; a later issue POSTs it to /api/screenshots here.
     saveImage(message.imageUrl, sender.tab?.title)
   }
 })
@@ -48,17 +51,30 @@ async function captureRegion(
   rect: Region,
   dpr: number,
   sender: chrome.runtime.MessageSender,
-): Promise<{ imageUrl: string } | { error: string }> {
+): Promise<{ imageUrl: string; id: string | null } | { error: string }> {
   try {
     const dataUrl = await chrome.tabs.captureVisibleTab(sender.tab?.windowId ?? chrome.windows.WINDOW_ID_CURRENT, {
       format: 'png',
     })
-    const cropped = await cropToRegion(dataUrl, rect, dpr)
-    return { imageUrl: cropped }
+    const id = await buildWatermarkId()
+    const cropped = await cropToRegion(dataUrl, rect, dpr, id)
+    return { imageUrl: cropped, id }
   } catch (error) {
     console.error('Capture/crop failed:', error)
     return { error: String(error) }
   }
+}
+
+// userId (7-char, from the session) + a fresh 7-char screenshotId = the 14-char [a-p] watermark key.
+// Returns null (no watermark) when there's no valid signed-in user id to anchor it to.
+async function buildWatermarkId(): Promise<string | null> {
+  const session = await getSession()
+  const userId = session?.user?.userId
+  if (!userId || !/^[a-p]{7}$/.test(userId)) {
+    console.warn('[TraceShot] no valid userId in session; skipping watermark')
+    return null
+  }
+  return userId + generateScreenshotId()
 }
 
 // Save into the chosen subfolder under Downloads; chrome.downloads is the only silent worker save API, uniquify avoids clobbering.
@@ -74,7 +90,8 @@ async function saveImage(imageUrl: string, title?: string) {
 }
 
 // Scale the CSS-pixel crop rect by dpr (the capture is physical-pixel); OffscreenCanvas since the worker has no DOM.
-async function cropToRegion(dataUrl: string, rect: Region, dpr: number): Promise<string> {
+// With an id, the crop is inset inside a BORDER_H frame that carries the watermark on all 4 edges.
+async function cropToRegion(dataUrl: string, rect: Region, dpr: number, id: string | null): Promise<string> {
   const blob = await (await fetch(dataUrl)).blob()
   const bitmap = await createImageBitmap(blob)
 
@@ -83,10 +100,23 @@ async function cropToRegion(dataUrl: string, rect: Region, dpr: number): Promise
   const sw = Math.round(rect.w * dpr)
   const sh = Math.round(rect.h * dpr)
 
-  const canvas = new OffscreenCanvas(sw, sh)
+  // Too small to hold a 30px run on any edge: save a plain crop, no frame.
+  const canEmbed = id !== null && (sw >= STRIP_PIXELS || sh >= STRIP_PIXELS)
+  const B = canEmbed ? BORDER_H : 0
+  const outW = sw + 2 * B
+  const outH = sh + 2 * B
+
+  const canvas = new OffscreenCanvas(outW, outH)
   const ctx = canvas.getContext('2d')
   if (!ctx) throw new Error('OffscreenCanvas 2d context unavailable')
-  ctx.drawImage(bitmap, sx, sy, sw, sh, 0, 0, sw, sh)
+  ctx.drawImage(bitmap, sx, sy, sw, sh, B, B, sw, sh)
+
+  if (canEmbed) {
+    const img = ctx.getImageData(0, 0, outW, outH)
+    paintWatermarkFrame(img.data, outW, outH, sw, sh, B, id!)
+    ctx.putImageData(img, 0, 0)
+    console.log('[TraceShot] embedded watermark id:', id)
+  }
 
   const out = await canvas.convertToBlob({ type: 'image/png' })
   return blobToDataUrl(out)

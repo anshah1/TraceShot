@@ -1,6 +1,7 @@
 export interface User {
   id: string
   email: string
+  userId: string // 7-char [a-p] id; prepended to a screenshot id to form the 14-char watermark key
 }
 
 export interface Session {

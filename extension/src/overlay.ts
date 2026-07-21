@@ -1,5 +1,7 @@
 // Region-selection overlay injected into the active tab: Select (dimmed drag box) then Preview (Confirm/Retake); dim is removed before capture so it never shows in the shot.
 
+import { STRIP_PIXELS } from './watermark'
+
 interface OverlayWindow extends Window {
   __traceshotOverlayActive?: boolean
 }
@@ -152,6 +154,14 @@ interface OverlayWindow extends Window {
       return
     }
 
+    // Need at least one edge long enough to hold the watermark run; otherwise the id can't be traced.
+    if (Math.round(finalRect.w * dpr) < STRIP_PIXELS && Math.round(finalRect.h * dpr) < STRIP_PIXELS) {
+      notice.textContent = 'Selection too small to trace — drag a larger area'
+      notice.style.display = 'block'
+      selection.style.display = 'none'
+      return // stay in selection phase (listeners still attached) so the user can re-drag
+    }
+
     removeSelectionListeners()
     selection.style.display = 'none'
     root.style.cursor = 'default'
@@ -165,7 +175,7 @@ interface OverlayWindow extends Window {
     await nextFrame()
     await nextFrame()
 
-    let res: { imageUrl?: string; error?: string } | undefined
+    let res: { imageUrl?: string; id?: string | null; error?: string } | undefined
     try {
       res = await chrome.runtime.sendMessage({ type: 'REGION_SELECTED', rect: finalRect, dpr })
     } catch (error) {
@@ -178,10 +188,10 @@ interface OverlayWindow extends Window {
       setTimeout(teardown, CANCEL_TOAST_MS)
       return
     }
-    showPreview(res.imageUrl)
+    showPreview(res.imageUrl, res.id ?? null)
   }
 
-  function showPreview(imageUrl: string) {
+  function showPreview(imageUrl: string, id: string | null) {
     root.style.background = 'rgba(0, 0, 0, 0.6)'
 
     const card = document.createElement('div')
@@ -237,7 +247,7 @@ interface OverlayWindow extends Window {
       startSelection()
     }
     confirmBtn.onclick = () => {
-      chrome.runtime.sendMessage({ type: 'CONFIRM_SAVE', imageUrl })
+      chrome.runtime.sendMessage({ type: 'CONFIRM_SAVE', imageUrl, id })
       teardown()
     }
 
