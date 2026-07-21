@@ -1,5 +1,6 @@
 import { registerLoginHandler } from './auth'
 import { getSaveSubfolder } from './screenshotLocation'
+import { buildScreenshotFilename } from './filename'
 
 chrome.runtime.onInstalled.addListener(() => {
   console.log('TraceShot extension installed');
@@ -31,7 +32,8 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     captureRegion(message.rect, message.dpr, sender).then(sendResponse)
     return true // keep the channel open for the async response
   } else if (message?.type === 'CONFIRM_SAVE') {
-    saveImage(message.imageUrl)
+    // CONFIRM_SAVE comes from the content script, so sender.tab carries the page title.
+    saveImage(message.imageUrl, sender.tab?.title)
   }
 })
 
@@ -70,9 +72,9 @@ async function captureRegion(
 // is the only save API that works silently from the worker, and it writes within Downloads —
 // so the location, being a relative path there, can never be unreachable. uniquify avoids
 // clobbering an existing file of the same name.
-async function saveImage(imageUrl: string) {
+async function saveImage(imageUrl: string, title?: string) {
   const subfolder = await getSaveSubfolder()
-  const base = `traceshot-${Date.now()}.png`
+  const base = buildScreenshotFilename(title)
   const filename = subfolder ? `${subfolder}/${base}` : base
   try {
     await chrome.downloads.download({ url: imageUrl, filename, conflictAction: 'uniquify' })
