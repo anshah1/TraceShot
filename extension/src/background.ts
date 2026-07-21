@@ -29,12 +29,11 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     startCapture().then(() => sendResponse({ ok: true }))
     return true // keep the channel open for the async response
   } else if (message?.type === 'REGION_SELECTED') {
-    captureRegion(message.rect, message.dpr, sender).then(sendResponse)
+    captureFull(sender).then(sendResponse)
     return true // keep the channel open for the async response
   } else if (message?.type === 'CONFIRM_SAVE') {
     // CONFIRM_SAVE comes from the content script, so sender.tab carries the page title/url.
-    saveImage(message.imageUrl, sender.tab?.title)
-    registerSnapshot(message.id, sender.tab)
+    confirmSave(message.fullDataUrl, message.rect, message.dpr, message.id, sender.tab)
   }
 })
 
@@ -72,23 +71,33 @@ async function startCapture() {
   }
 }
 
-// Capture + crop the visible tab, returning the cropped PNG as a data URL for preview; saving waits for CONFIRM_SAVE.
-async function captureRegion(
-  rect: Region,
-  dpr: number,
+// Capture the visible tab and mint the watermark id; the crop + watermark run later on CONFIRM_SAVE,
+// so the preview can paint instantly from the full shot instead of waiting on the crop/encode.
+async function captureFull(
   sender: chrome.runtime.MessageSender,
-): Promise<{ imageUrl: string; id: string | null } | { error: string }> {
+): Promise<{ fullDataUrl: string; id: string | null } | { error: string }> {
   try {
-    const dataUrl = await chrome.tabs.captureVisibleTab(sender.tab?.windowId ?? chrome.windows.WINDOW_ID_CURRENT, {
+    const fullDataUrl = await chrome.tabs.captureVisibleTab(sender.tab?.windowId ?? chrome.windows.WINDOW_ID_CURRENT, {
       format: 'png',
     })
     const id = await buildWatermarkId()
-    const cropped = await cropToRegion(dataUrl, rect, dpr, id)
-    return { imageUrl: cropped, id }
+    return { fullDataUrl, id }
   } catch (error) {
-    console.error('Capture/crop failed:', error)
+    console.error('Capture failed:', error)
     return { error: String(error) }
   }
+}
+
+// After the user confirms: crop the region out of the full shot, paint the watermark, save, then register.
+async function confirmSave(fullDataUrl: string, rect: Region, dpr: number, id: string | null, tab?: chrome.tabs.Tab) {
+  try {
+    const cropped = await cropToRegion(fullDataUrl, rect, dpr, id)
+    await saveImage(cropped, tab?.title)
+  } catch (error) {
+    console.error('[TraceShot] Confirm/save failed:', error)
+    return
+  }
+  registerSnapshot(id, tab)
 }
 
 // userId (7-char, from the session) + a fresh 7-char screenshotId = the 14-char [a-p] watermark key.

@@ -175,23 +175,23 @@ interface OverlayWindow extends Window {
     await nextFrame()
     await nextFrame()
 
-    let res: { imageUrl?: string; id?: string | null; error?: string } | undefined
+    let res: { fullDataUrl?: string; id?: string | null; error?: string } | undefined
     try {
       res = await chrome.runtime.sendMessage({ type: 'REGION_SELECTED', rect: finalRect, dpr })
     } catch (error) {
       res = { error: String(error) }
     }
 
-    if (!res?.imageUrl) {
+    if (!res?.fullDataUrl) {
       notice.textContent = 'TraceShot capture failed'
       notice.style.display = 'block'
       setTimeout(teardown, CANCEL_TOAST_MS)
       return
     }
-    showPreview(res.imageUrl, res.id ?? null)
+    showPreview(res.fullDataUrl, finalRect, dpr, res.id ?? null)
   }
 
-  function showPreview(imageUrl: string, id: string | null) {
+  function showPreview(fullDataUrl: string, region: typeof rect, dpr: number, id: string | null) {
     root.style.background = 'rgba(0, 0, 0, 0.6)'
 
     const card = document.createElement('div')
@@ -219,17 +219,32 @@ interface OverlayWindow extends Window {
       color: BRAND.accent,
     } as Partial<CSSStyleDeclaration>)
 
-    const img = document.createElement('img')
-    img.src = imageUrl
-    Object.assign(img.style, {
-      display: 'block',
+    // Preview the full capture CSS-cropped to the region (scaled to fit) — no re-encode, so it paints instantly.
+    // The watermark border it lacks is added later, when the background crops + encodes on CONFIRM_SAVE.
+    const scale = Math.min(1, (window.innerWidth * 0.72) / region.w, (window.innerHeight * 0.58) / region.h)
+    const frame = document.createElement('div')
+    Object.assign(frame.style, {
+      position: 'relative',
+      overflow: 'hidden',
       margin: '0 auto',
-      maxWidth: '72vw',
-      maxHeight: '58vh',
-      objectFit: 'contain',
+      width: `${region.w * scale}px`,
+      height: `${region.h * scale}px`,
       borderRadius: '8px',
       border: `1px solid ${BRAND.border}`,
     } as Partial<CSSStyleDeclaration>)
+
+    const img = document.createElement('img')
+    img.src = fullDataUrl
+    Object.assign(img.style, {
+      position: 'absolute',
+      left: `${-region.x * scale}px`,
+      top: `${-region.y * scale}px`,
+      width: `${window.innerWidth * scale}px`,
+      maxWidth: 'none',
+      height: 'auto',
+      display: 'block',
+    } as Partial<CSSStyleDeclaration>)
+    frame.appendChild(img)
 
     const btnRow = document.createElement('div')
     Object.assign(btnRow.style, {
@@ -247,12 +262,12 @@ interface OverlayWindow extends Window {
       startSelection()
     }
     confirmBtn.onclick = () => {
-      chrome.runtime.sendMessage({ type: 'CONFIRM_SAVE', imageUrl, id })
+      chrome.runtime.sendMessage({ type: 'CONFIRM_SAVE', fullDataUrl, rect: region, dpr, id })
       teardown()
     }
 
     btnRow.append(retakeBtn, confirmBtn)
-    card.append(wordmark, img, btnRow)
+    card.append(wordmark, frame, btnRow)
     root.appendChild(card)
     previewCard = card
   }
