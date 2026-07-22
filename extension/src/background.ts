@@ -27,8 +27,9 @@ type SaveResult = { ok: true } | { ok: false; message: string }
 // START_CAPTURE / REGION_SELECTED / CONFIRM_SAVE across popup + overlay; capture lives here since captureVisibleTab is worker-only.
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message?.type === 'START_CAPTURE') {
-    // Respond only after injection so the popup stays open until the (cold-starting) worker finishes.
-    startCapture().then(() => sendResponse({ ok: true }))
+    // Respond only after injection so the popup stays open until the (cold-starting) worker finishes,
+    // and so it can surface a reason when the overlay can't be injected (restricted pages).
+    startCapture().then(sendResponse)
     return true // keep the channel open for the async response
   } else if (message?.type === 'REGION_SELECTED') {
     captureFull(sender).then(sendResponse)
@@ -67,15 +68,19 @@ async function registerSnapshot(id: string | null, tab?: chrome.tabs.Tab): Promi
   }
 }
 
-// Inject the region-selection overlay into the active tab.
-async function startCapture() {
+type CaptureStart = { ok: true } | { ok: false; reason: 'no-tab' | 'restricted' }
+
+// Inject the region-selection overlay into the active tab; report why if it can't be injected.
+async function startCapture(): Promise<CaptureStart> {
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true })
-  if (!tab?.id) return
+  if (!tab?.id) return { ok: false, reason: 'no-tab' }
   try {
     await chrome.scripting.executeScript({ target: { tabId: tab.id }, files: ['overlay.js'] })
+    return { ok: true }
   } catch (error) {
-    // Fails on restricted pages (chrome://, the Web Store, etc.) where scripts can't run.
+    // Fails on restricted pages (chrome://, the Web Store, other extensions, PDFs) where scripts can't run.
     console.error('Failed to start capture overlay:', error)
+    return { ok: false, reason: 'restricted' }
   }
 }
 

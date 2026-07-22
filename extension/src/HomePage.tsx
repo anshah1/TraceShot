@@ -28,9 +28,17 @@ const RESOLVE_ERRORS: Record<ResolveOutcome['status'], string> = {
   timeout: 'The server took too long to respond. Please try again.',
 }
 
+type CaptureStart = { ok: true } | { ok: false; reason: 'no-tab' | 'restricted' }
+
+const CAPTURE_ERRORS: Record<'no-tab' | 'restricted', string> = {
+  'no-tab': 'No active tab to capture.',
+  restricted: "This page can't be captured — try a normal website (browser and Web Store pages are blocked).",
+}
+
 export default function HomePage({ session }: { session: Session }) {
   const [isDragging, setIsDragging] = useState(false)
   const [resolve, setResolve] = useState<ResolveState>({ status: 'idle' })
+  const [captureError, setCaptureError] = useState<string | null>(null)
   const [copied, setCopied] = useState(false)
   const [saveLocation, setSaveLocation] = useState(DEFAULT_SUBFOLDER)
   const [editingLocation, setEditingLocation] = useState(false)
@@ -89,12 +97,20 @@ export default function HomePage({ session }: { session: Session }) {
 
   // Hand off to the worker (only it can capture) and await it, so a cold-started worker gets the message before the popup closes.
   const handleScreenshot = async () => {
+    setCaptureError(null)
+    let res: CaptureStart | undefined
     try {
-      await chrome.runtime.sendMessage({ type: 'START_CAPTURE' })
+      res = await chrome.runtime.sendMessage({ type: 'START_CAPTURE' })
     } catch (error) {
       console.error('Failed to start capture:', error)
+      setCaptureError('Something went wrong starting capture. Please try again.')
+      return
     }
-    window.close()
+    if (res?.ok) {
+      window.close() // overlay took over the tab; the popup can go
+      return
+    }
+    setCaptureError(CAPTURE_ERRORS[res?.reason ?? 'restricted'])
   }
 
   const handleFileSelect = async (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -160,6 +176,8 @@ export default function HomePage({ session }: { session: Session }) {
           <span className="home-capture-sub">Select a region to trace &amp; copy</span>
         </span>
       </button>
+
+      {captureError && <p className="link-status link-status-error home-capture-error">{captureError}</p>}
 
       <section className="home-section" aria-labelledby="retrieve-heading">
         <h2 id="retrieve-heading" className="home-section-title">
