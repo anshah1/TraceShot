@@ -134,6 +134,20 @@ export default function HomePage({ session }: { session: Session }) {
     setTimeout(() => setCopied(false), 1500)
   }
 
+  // Open the resolved link in a new tab, but only for http(s) — the URL comes from a decoded
+  // watermark, so we refuse other schemes (javascript:, data:, file:) as defense-in-depth.
+  const handleOpenLink = () => {
+    if (resolve.status !== 'resolved') return
+    let safe: URL
+    try {
+      safe = new URL(resolve.link)
+    } catch {
+      return
+    }
+    if (safe.protocol !== 'http:' && safe.protocol !== 'https:') return
+    window.open(safe.href, '_blank', 'noopener,noreferrer')
+  }
+
   const handleStartEditLocation = () => {
     setLocationDraft(saveLocation)
     setEditingLocation(true)
@@ -225,6 +239,9 @@ export default function HomePage({ session }: { session: Session }) {
         {resolve.status === 'resolved' ? (
           <div className="link-result">
             <code className="link-url">{resolve.link}</code>
+            <button className="btn-secondary link-open" onClick={handleOpenLink}>
+              Open
+            </button>
             <button className="btn-secondary link-copy" onClick={handleCopyLink}>
               {copied ? 'Copied' : 'Copy'}
             </button>

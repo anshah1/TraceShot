@@ -227,6 +227,7 @@
   white-space: nowrap;
 }
 
+.link-open,
 .link-copy {
   flex-shrink: 0;
 }
