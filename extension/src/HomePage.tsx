@@ -9,12 +9,28 @@ import './HomePage.css'
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3000'
 const RESOLVE_TIMEOUT_MS = 8000
 
-type ResolveStatus = 'idle' | 'resolving' | 'resolved' | 'not-found'
+type ResolveOutcome =
+  | { status: 'resolved'; link: string }
+  | { status: 'no-watermark' }
+  | { status: 'unreadable' }
+  | { status: 'server-error' }
+  | { status: 'offline' }
+  | { status: 'timeout' }
+
+type ResolveState = { status: 'idle' } | { status: 'resolving' } | ResolveOutcome
+
+const RESOLVE_ERRORS: Record<ResolveOutcome['status'], string> = {
+  resolved: '',
+  'no-watermark': 'No TraceShot watermark found in this image.',
+  unreadable: "Couldn't read that file — try dropping a PNG screenshot.",
+  'server-error': 'Server error resolving this link. Please try again.',
+  offline: "Can't reach the TraceShot server — is the backend running?",
+  timeout: 'The server took too long to respond. Please try again.',
+}
 
 export default function HomePage({ session }: { session: Session }) {
   const [isDragging, setIsDragging] = useState(false)
-  const [retrievedLink, setRetrievedLink] = useState<string | null>(null)
-  const [resolveStatus, setResolveStatus] = useState<ResolveStatus>('idle')
+  const [resolve, setResolve] = useState<ResolveState>({ status: 'idle' })
   const [copied, setCopied] = useState(false)
   const [saveLocation, setSaveLocation] = useState(DEFAULT_SUBFOLDER)
   const [editingLocation, setEditingLocation] = useState(false)
@@ -28,28 +44,38 @@ export default function HomePage({ session }: { session: Session }) {
     await logout()
   }
 
-  // Decode the watermark id from the dropped image (canvas → pixels → readFrameId), then resolve it to its source URL via the backend.
-  const resolveLink = async (file: File): Promise<string | null> => {
-    const controller = new AbortController()
-    const timeout = setTimeout(() => controller.abort(), RESOLVE_TIMEOUT_MS)
+  // Decode the watermark id from the dropped image, then resolve it via the backend. Each stage maps to
+  // a distinct outcome so an unreadable file, a missing watermark, and an unreachable server stay separable.
+  const resolveLink = async (file: File): Promise<ResolveOutcome> => {
+    let data: Uint8ClampedArray, width: number, height: number
     try {
       const bitmap = await createImageBitmap(file)
       const canvas = document.createElement('canvas')
       canvas.width = bitmap.width
       canvas.height = bitmap.height
       const ctx = canvas.getContext('2d')
-      if (!ctx) return null
+      if (!ctx) return { status: 'unreadable' }
       ctx.drawImage(bitmap, 0, 0)
-      const { data, width, height } = ctx.getImageData(0, 0, canvas.width, canvas.height)
-      const id = readFrameId(data, width, height)
-      if (!id) return null
+      ;({ data, width, height } = ctx.getImageData(0, 0, canvas.width, canvas.height))
+    } catch (error) {
+      console.error('Failed to read image:', error)
+      return { status: 'unreadable' }
+    }
 
+    const id = readFrameId(data, width, height)
+    if (!id) return { status: 'no-watermark' }
+
+    const controller = new AbortController()
+    const timeout = setTimeout(() => controller.abort(), RESOLVE_TIMEOUT_MS)
+    try {
       const res = await fetch(`${BACKEND_URL}/api/screenshots?screenshotId=${id}`, { signal: controller.signal })
-      if (!res.ok) return null
-      return await res.json()
+      // 404 = id not in our records; for a dropped image that's overwhelmingly a false-positive decode, so treat it as "no watermark".
+      if (res.status === 404) return { status: 'no-watermark' }
+      if (!res.ok) return { status: 'server-error' }
+      return { status: 'resolved', link: await res.json() }
     } catch (error) {
       console.error('Failed to resolve link:', error)
-      return null
+      return { status: error instanceof DOMException && error.name === 'AbortError' ? 'timeout' : 'offline' }
     } finally {
       clearTimeout(timeout)
     }
@@ -57,11 +83,8 @@ export default function HomePage({ session }: { session: Session }) {
 
   // Drive the shared resolve → UI-status transition for both drop and file-picker inputs.
   const resolveFile = async (file: File) => {
-    setResolveStatus('resolving')
-    setRetrievedLink(null)
-    const link = await resolveLink(file)
-    setRetrievedLink(link)
-    setResolveStatus(link ? 'resolved' : 'not-found')
+    setResolve({ status: 'resolving' })
+    setResolve(await resolveLink(file))
   }
 
   // Hand off to the worker (only it can capture) and await it, so a cold-started worker gets the message before the popup closes.
@@ -89,8 +112,8 @@ export default function HomePage({ session }: { session: Session }) {
   }
 
   const handleCopyLink = async () => {
-    if (!retrievedLink) return
-    await navigator.clipboard.writeText(retrievedLink)
+    if (resolve.status !== 'resolved') return
+    await navigator.clipboard.writeText(resolve.link)
     setCopied(true)
     setTimeout(() => setCopied(false), 1500)
   }
@@ -179,19 +202,20 @@ export default function HomePage({ session }: { session: Session }) {
           <p className="dropzone-hint">Traced screenshots resolve to their source URL</p>
         </label>
 
-        {resolveStatus === 'resolving' && <p className="link-status">Decoding screenshot…</p>}
+        {resolve.status === 'resolving' && <p className="link-status">Decoding screenshot…</p>}
 
-        {resolveStatus === 'not-found' && (
-          <p className="link-status link-status-error">Not recognized — no TraceShot watermark found in this image.</p>
-        )}
-
-        {resolveStatus === 'resolved' && retrievedLink && (
+        {resolve.status === 'resolved' ? (
           <div className="link-result">
-            <code className="link-url">{retrievedLink}</code>
+            <code className="link-url">{resolve.link}</code>
             <button className="btn-secondary link-copy" onClick={handleCopyLink}>
               {copied ? 'Copied' : 'Copy'}
             </button>
           </div>
+        ) : (
+          resolve.status !== 'idle' &&
+          resolve.status !== 'resolving' && (
+            <p className="link-status link-status-error">{RESOLVE_ERRORS[resolve.status]}</p>
+          )
         )}
       </section>
 

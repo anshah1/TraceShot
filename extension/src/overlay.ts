@@ -256,18 +256,61 @@ interface OverlayWindow extends Window {
     const retakeBtn = makeButton('Retake', 'ghost')
     const confirmBtn = makeButton('Confirm', 'primary')
 
+    const status = document.createElement('div')
+    Object.assign(status.style, {
+      display: 'none',
+      font: `500 13px/1.4 ${BRAND.font}`,
+      color: '#f87171',
+    } as Partial<CSSStyleDeclaration>)
+
     retakeBtn.onclick = () => {
       card.remove()
       previewCard = null
       startSelection()
     }
-    confirmBtn.onclick = () => {
-      chrome.runtime.sendMessage({ type: 'CONFIRM_SAVE', fullDataUrl, rect: region, dpr, id })
-      teardown()
+    confirmBtn.onclick = async () => {
+      retakeBtn.disabled = true
+      confirmBtn.disabled = true
+      confirmBtn.textContent = 'Saving…'
+
+      // Claim clipboard access synchronously, inside the click, while the transient user activation is still
+      // valid; the PNG itself is delivered later, once the worker returns the cropped shot. The async
+      // ClipboardItem holds the write open on this promise, and rejecting it leaves the clipboard untouched.
+      let deliverImage!: (blob: Blob) => void
+      let dropImage!: (reason?: unknown) => void
+      const pngBlob = new Promise<Blob>((resolve, reject) => {
+        deliverImage = resolve
+        dropImage = reject
+      })
+      const copied = writeImageToClipboard(pngBlob)
+
+      let result: { ok?: boolean; message?: string; dataUrl?: string } | undefined
+      try {
+        result = await chrome.runtime.sendMessage({ type: 'CONFIRM_SAVE', fullDataUrl, rect: region, dpr, id })
+      } catch (error) {
+        result = { ok: false, message: String(error) }
+      }
+
+      if (result?.dataUrl) {
+        deliverImage(await (await fetch(result.dataUrl)).blob())
+      } else {
+        dropImage(new Error('no screenshot produced'))
+      }
+
+      if (result?.ok) {
+        finishWithToast((await copied) ? 'Saved · Image copied to clipboard' : 'Saved to Downloads')
+        return
+      }
+      status.textContent = result?.message ?? 'Could not save the screenshot.'
+      status.style.display = 'block'
+      retakeBtn.style.display = 'none'
+      confirmBtn.disabled = false
+      confirmBtn.textContent = 'Dismiss'
+      confirmBtn.onclick = teardown
     }
 
     btnRow.append(retakeBtn, confirmBtn)
-    card.append(wordmark, frame, btnRow)
+    card.append(wordmark, frame, btnRow, status)
     root.appendChild(card)
     previewCard = card
   }
@@ -291,6 +334,29 @@ interface OverlayWindow extends Window {
     btn.onmouseenter = () => (btn.style.background = hover)
     btn.onmouseleave = () => (btn.style.background = base)
     return btn
+  }
+
+  // Copy the watermarked PNG to the clipboard. Resolves true on success; a rejected/failed write is swallowed
+  // (and leaves the clipboard untouched) so a copy failure never blocks the save that already succeeded.
+  async function writeImageToClipboard(blob: Promise<Blob>): Promise<boolean> {
+    try {
+      await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })])
+      return true
+    } catch (error) {
+      console.error('[TraceShot] clipboard copy failed:', error)
+      return false
+    }
+  }
+
+  // Green success toast shown briefly after a save, then tear down (mirrors the red cancel/error notice).
+  function finishWithToast(text: string) {
+    previewCard?.remove()
+    previewCard = null
+    root.style.background = 'transparent'
+    notice.textContent = text
+    notice.style.background = 'rgba(22, 163, 74, 0.95)'
+    notice.style.display = 'block'
+    setTimeout(teardown, CANCEL_TOAST_MS)
   }
 
   // --- Teardown / cancel -------------------------------------------------------

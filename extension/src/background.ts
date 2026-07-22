@@ -22,6 +22,8 @@ interface Region {
   h: number
 }
 
+type SaveResult = { ok: true } | { ok: false; message: string }
+
 // START_CAPTURE / REGION_SELECTED / CONFIRM_SAVE across popup + overlay; capture lives here since captureVisibleTab is worker-only.
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message?.type === 'START_CAPTURE') {
@@ -33,14 +35,15 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     return true // keep the channel open for the async response
   } else if (message?.type === 'CONFIRM_SAVE') {
     // CONFIRM_SAVE comes from the content script, so sender.tab carries the page title/url.
-    confirmSave(message.fullDataUrl, message.rect, message.dpr, message.id, sender.tab)
+    confirmSave(message.fullDataUrl, message.rect, message.dpr, message.id, sender.tab).then(sendResponse)
+    return true // keep the channel open so the overlay can show a save/register error
   }
 })
 
 // Register the watermark key + page metadata so a dropped shot can later resolve to its source URL.
 // Skipped silently when the region was too small to watermark (id null); never blocks the save.
-async function registerSnapshot(id: string | null, tab?: chrome.tabs.Tab) {
-  if (!id || !WATERMARK_ID.test(id) || !tab?.url || !tab?.title) return
+async function registerSnapshot(id: string | null, tab?: chrome.tabs.Tab): Promise<SaveResult> {
+  if (!id || !WATERMARK_ID.test(id) || !tab?.url || !tab?.title) return { ok: true }
   const controller = new AbortController()
   const timeout = setTimeout(() => controller.abort(), REGISTER_TIMEOUT_MS)
   try {
@@ -51,9 +54,14 @@ async function registerSnapshot(id: string | null, tab?: chrome.tabs.Tab) {
       body: JSON.stringify({ screenshotId: id, url: tab.url, title: tab.title, origin }),
       signal: controller.signal,
     })
-    if (!res.ok) console.error('[TraceShot] snapshot register failed:', res.status)
+    if (!res.ok) {
+      console.error('[TraceShot] snapshot register failed:', res.status)
+      return { ok: false, message: "Saved, but the server couldn't record it — this screenshot won't be traceable." }
+    }
+    return { ok: true }
   } catch (error) {
     console.error('[TraceShot] snapshot register failed:', error)
+    return { ok: false, message: "Saved, but the server was unreachable — this screenshot won't be traceable." }
   } finally {
     clearTimeout(timeout)
   }
@@ -89,15 +97,24 @@ async function captureFull(
 }
 
 // After the user confirms: crop the region out of the full shot, paint the watermark, save, then register.
-async function confirmSave(fullDataUrl: string, rect: Region, dpr: number, id: string | null, tab?: chrome.tabs.Tab) {
+// Returns the watermarked PNG data URL so the overlay can also copy it to the clipboard (the worker can't).
+async function confirmSave(
+  fullDataUrl: string,
+  rect: Region,
+  dpr: number,
+  id: string | null,
+  tab?: chrome.tabs.Tab,
+): Promise<SaveResult & { dataUrl?: string }> {
+  let cropped: string
   try {
-    const cropped = await cropToRegion(fullDataUrl, rect, dpr, id)
+    cropped = await cropToRegion(fullDataUrl, rect, dpr, id)
     await saveImage(cropped, tab?.title)
   } catch (error) {
     console.error('[TraceShot] Confirm/save failed:', error)
-    return
+    return { ok: false, message: 'Could not save the screenshot. Please try again.' }
   }
-  registerSnapshot(id, tab)
+  // Include dataUrl even when registration fails: the shot is saved and still worth copying, just not traceable.
+  return { ...(await registerSnapshot(id, tab)), dataUrl: cropped }
 }
 
 // userId (7-char, from the session) + a fresh 7-char screenshotId = the 14-char [a-p] watermark key.
@@ -121,6 +138,7 @@ async function saveImage(imageUrl: string, title?: string) {
     await chrome.downloads.download({ url: imageUrl, filename, conflictAction: 'uniquify' })
   } catch (error) {
     console.error('[TraceShot] Save failed:', error)
+    throw error
   }
 }
 
