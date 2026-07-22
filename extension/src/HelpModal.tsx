@@ -42,14 +42,21 @@ export default function HelpModal() {
           </header>
 
           <div className="help-body">
+            <div className="help-flow">
+              <p className="help-flow-steps">
+                <strong>Capture</strong> the photo &amp; assign it a random ID → <strong>encode</strong> that ID
+                into your picture → on <strong>decode</strong>, we read the ID back and fetch the URL from our database
+              </p>
+              <p className="help-flow-note">
+                Your screenshot never leaves your device.
+              </p>
+            </div>
             <p className="help-text">
-              <strong>capture → watermark → decode</strong> flow.
+              Survives <strong>iMessage, Slack, Email, and Discord</strong>. It won't survive
+              heavy lossy compression like <strong>Snapchat or Instagram</strong>.
             </p>
             <p className="help-text">
-              Watermark may not work on{' '} <strong>non-solid backgrounds</strong>.
-            </p>
-            <p className="help-text">
-              TraceShot is <strong>open source</strong> and contributions are welcome. File issues or open a PR on GitHub.
+              TraceShot is <strong>open source</strong> and contributions are welcome. File issues or open a PR.
             </p>
             <a className="help-github" href="https://github.com/anshah1/TraceShot" target="_blank" rel="noopener noreferrer">
               <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
