@@ -12,7 +12,7 @@ export const OFFSET = 3 // +/-3 on R and G encodes a bit (+3 -> 1, -3 -> 0)
 export const SENTINEL_BLUE = 3 // sentinel pixels raise blue by this; data pixels leave blue at base
 export const DATA_PIXELS = 28 // 28 data pixels * 2 bits = 56 bits
 export const STRIP_PIXELS = DATA_PIXELS + 2 // 30: sentinel + 28 data + sentinel
-export const BORDER_H = 3 // frame thickness in physical px
+export const BORDER_H = 2 // frame thickness in physical px (run stamped on each row for redundancy)
 
 const OFFSET_MIN = 1 // fuzzy decode window: |offset| in [1,5] is a confident bit
 const OFFSET_MAX = 5
