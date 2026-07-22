@@ -179,11 +179,11 @@ interface OverlayWindow extends Window {
     try {
       res = await chrome.runtime.sendMessage({ type: 'REGION_SELECTED', rect: finalRect, dpr })
     } catch (error) {
-      res = { error: String(error) }
+      console.error('[TraceShot] capture request failed:', error)
     }
 
     if (!res?.fullDataUrl) {
-      notice.textContent = 'TraceShot capture failed'
+      notice.textContent = res?.error ?? 'TraceShot capture failed'
       notice.style.display = 'block'
       setTimeout(teardown, CANCEL_TOAST_MS)
       return

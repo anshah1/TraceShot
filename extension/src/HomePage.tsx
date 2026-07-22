@@ -28,11 +28,12 @@ const RESOLVE_ERRORS: Record<ResolveOutcome['status'], string> = {
   timeout: 'The server took too long to respond. Please try again.',
 }
 
-type CaptureStart = { ok: true } | { ok: false; reason: 'no-tab' | 'restricted' }
+type CaptureStart = { ok: true } | { ok: false; reason: 'no-tab' | 'restricted' | 'local-file' }
 
-const CAPTURE_ERRORS: Record<'no-tab' | 'restricted', string> = {
+const CAPTURE_ERRORS: Record<'no-tab' | 'restricted' | 'local-file', string> = {
   'no-tab': 'No active tab to capture.',
   restricted: "This page can't be captured — try a normal website (browser and Web Store pages are blocked).",
+  'local-file': "Local files can't be traced — they have no shareable URL. Open the page online instead.",
 }
 
 export default function HomePage({ session }: { session: Session }) {
@@ -40,6 +41,7 @@ export default function HomePage({ session }: { session: Session }) {
   const [resolve, setResolve] = useState<ResolveState>({ status: 'idle' })
   const [captureError, setCaptureError] = useState<string | null>(null)
   const [copied, setCopied] = useState(false)
+  const [copyFailed, setCopyFailed] = useState(false)
   const [saveLocation, setSaveLocation] = useState(DEFAULT_SUBFOLDER)
   const [editingLocation, setEditingLocation] = useState(false)
   const [locationDraft, setLocationDraft] = useState(DEFAULT_SUBFOLDER)
@@ -129,9 +131,15 @@ export default function HomePage({ session }: { session: Session }) {
 
   const handleCopyLink = async () => {
     if (resolve.status !== 'resolved') return
-    await navigator.clipboard.writeText(resolve.link)
-    setCopied(true)
-    setTimeout(() => setCopied(false), 1500)
+    try {
+      await navigator.clipboard.writeText(resolve.link)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 1500)
+    } catch (error) {
+      console.error('Clipboard copy failed:', error)
+      setCopyFailed(true)
+      setTimeout(() => setCopyFailed(false), 1500)
+    }
   }
 
   // Open the resolved link in a new tab, but only for http(s) — the URL comes from a decoded
@@ -242,8 +250,11 @@ export default function HomePage({ session }: { session: Session }) {
             <button className="btn-secondary link-open" onClick={handleOpenLink}>
               Open
             </button>
-            <button className="btn-secondary link-copy" onClick={handleCopyLink}>
-              {copied ? 'Copied' : 'Copy'}
+            <button
+              className={`btn-secondary link-copy${copyFailed ? ' link-copy-failed' : ''}`}
+              onClick={handleCopyLink}
+            >
+              {copyFailed ? 'Copy failed' : copied ? 'Copied' : 'Copy'}
             </button>
           </div>
         ) : (

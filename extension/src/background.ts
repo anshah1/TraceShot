@@ -68,12 +68,25 @@ async function registerSnapshot(id: string | null, tab?: chrome.tabs.Tab): Promi
   }
 }
 
-type CaptureStart = { ok: true } | { ok: false; reason: 'no-tab' | 'restricted' }
+type CaptureStart = { ok: true } | { ok: false; reason: 'no-tab' | 'restricted' | 'local-file' }
+
+// Local files opened in Chrome (e.g. a PDF viewed from disk) have a file:// URL whose origin is null
+// and which means nothing to anyone else — so a shot of one can't resolve back to a shareable link.
+// Blocked (with its own message) at both the start-of-capture and capture-time gates.
+function isLocalFile(url?: string): boolean {
+  if (!url) return false
+  try {
+    return new URL(url).protocol === 'file:'
+  } catch {
+    return false
+  }
+}
 
 // Inject the region-selection overlay into the active tab; report why if it can't be injected.
 async function startCapture(): Promise<CaptureStart> {
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true })
   if (!tab?.id) return { ok: false, reason: 'no-tab' }
+  if (isLocalFile(tab.url)) return { ok: false, reason: 'local-file' }
   try {
     await chrome.scripting.executeScript({ target: { tabId: tab.id }, files: ['overlay.js'] })
     return { ok: true }
@@ -90,14 +103,19 @@ async function captureFull(
   sender: chrome.runtime.MessageSender,
 ): Promise<{ fullDataUrl: string; id: string | null } | { error: string }> {
   try {
-    const fullDataUrl = await chrome.tabs.captureVisibleTab(sender.tab?.windowId ?? chrome.windows.WINDOW_ID_CURRENT, {
-      format: 'png',
-    })
+    const windowId = sender.tab?.windowId ?? chrome.windows.WINDOW_ID_CURRENT
+    // captureVisibleTab grabs whatever tab is visible now, which may differ from the tab the overlay was
+    // injected into (user switched to a local file with the crosshair still up). Re-check before capturing.
+    const [active] = await chrome.tabs.query({ active: true, windowId })
+    if (isLocalFile(active?.url)) {
+      return { error: "Can't trace a local file — switch back to a web page with a shareable URL." }
+    }
+    const fullDataUrl = await chrome.tabs.captureVisibleTab(windowId, { format: 'png' })
     const id = await buildWatermarkId()
     return { fullDataUrl, id }
   } catch (error) {
     console.error('Capture failed:', error)
-    return { error: String(error) }
+    return { error: 'Capture failed. Please try again.' }
   }
 }
 

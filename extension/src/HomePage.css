@@ -232,6 +232,11 @@
   flex-shrink: 0;
 }
 
+.link-copy-failed {
+  color: var(--danger);
+  border-color: var(--danger);
+}
+
 .location-row {
   display: flex;
   align-items: center;
