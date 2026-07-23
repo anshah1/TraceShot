@@ -5,7 +5,7 @@ export const metadata = {
 
 // TODO: set these before publishing.
 const LAST_UPDATED = 'July 22, 2026'
-const CONTACT_EMAIL = 'your-contact@example.com'
+const CONTACT_EMAIL = 'anshs+traceshot@umich.edu'
 
 const css = `
   .privacy { max-width: 720px; margin: 0 auto; padding: 48px 24px 96px;

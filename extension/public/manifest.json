@@ -1,6 +1,5 @@
 {
   "manifest_version": 3,
-  "key": "40ac9290192da75e98f477427d8d0f04bd799db2664493ae8619bd6b8411078e",
   "name": "TraceShot",
   "version": "0.1.0",
   "description": "Make team screenshots traceable",

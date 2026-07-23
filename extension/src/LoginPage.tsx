@@ -1,6 +1,5 @@
 import { useState } from 'react'
 import { loginWithGoogle } from './auth'
-import HelpModal from './HelpModal'
 import './LoginPage.css'
 
 export default function LoginPage() {
@@ -24,21 +23,30 @@ export default function LoginPage() {
 
   return (
     <main className="login-container">
-      <HelpModal />
-
       <div className="login-content">
         <header className="login-intro">
           <h1 className="login-wordmark">TraceShot</h1>
           <p className="login-claim">
-            We recover the source URL of your screenshots without them ever leaving your machine.
+            Remember where every screenshot came from.
           </p>
         </header>
 
-        <div className="demo-frame">
-          <section className="demo-section" aria-label="TraceShot workflow demo">
-            <p className="demo-text">Workflow demo</p>
-          </section>
-        </div>
+        <ol className="login-steps">
+          <li>
+            <span className="login-step-num">1</span>
+            Capture any part of the page you're on.
+          </li>
+          <li>
+            <span className="login-step-num">2</span>
+            TraceShot watermarks it invisibly.
+          </li>
+          <li>
+            <span className="login-step-num">3</span>
+            Decode it later to recover the source URL.
+          </li>
+        </ol>
+
+        <p className="login-privacy">Your screenshot never leaves your device.</p>
 
         {error && <div className="login-error" role="alert">{error}</div>}
 
