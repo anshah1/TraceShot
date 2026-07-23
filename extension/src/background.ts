@@ -8,10 +8,6 @@ const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3000'
 const WATERMARK_ID = /^[a-p]{14}$/
 const REGISTER_TIMEOUT_MS = 8000
 
-chrome.runtime.onInstalled.addListener(() => {
-  console.log('TraceShot extension installed');
-});
-
 // OAuth runs here, not the popup: the popup closes when the sign-in window takes focus. See auth.ts.
 registerLoginHandler();
 
@@ -191,7 +187,6 @@ async function cropToRegion(dataUrl: string, rect: Region, dpr: number, id: stri
     const img = ctx.getImageData(0, 0, outW, outH)
     paintWatermarkFrame(img.data, outW, outH, sw, sh, B, id!)
     ctx.putImageData(img, 0, 0)
-    console.log('[TraceShot] embedded watermark id:', id)
   }
 
   const out = await canvas.convertToBlob({ type: 'image/png' })
